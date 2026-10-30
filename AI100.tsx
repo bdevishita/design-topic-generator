@@ -5,7 +5,7 @@ import ModeSwitch, { type Mode } from "./ModeSwitch";
 
 const KEY = "ai100-v1";
 const DAYS = 100;
-const WEEKS = 17;
+const WEEKS = 20;
 
 const PORTFOLIO = [
   "Frame the problem in one sentence",
@@ -16,11 +16,12 @@ const PORTFOLIO = [
 ];
 
 type Entry = { day: number; idea: number; date: string; link: string; note: string };
+type Prog = { idea: number; date: string; link: string; note: string };
 type Save = {
   order: number[];
   cursor: number;
   options: number[];
-  picked: number | null;
+  started: Prog[];
   log: Entry[];
   skipDate: string;
 };
@@ -72,25 +73,31 @@ function pick3(order: number[], cursor: number, used: Set<number>, exclude: numb
   return { order: ord, cursor: c, options: out };
 }
 
-function fresh(log: Entry[] = []): Save {
-  const r = pick3(shuffle(IDEAS.map((i) => i.id)), 0, new Set(log.map((e) => e.idea)), []);
-  return { ...r, picked: null, log, skipDate: "" };
+function fresh(log: Entry[] = [], started: Prog[] = []): Save {
+  const used = new Set([...log.map((e) => e.idea), ...started.map((p) => p.idea)]);
+  const r = pick3(shuffle(IDEAS.map((i) => i.id)), 0, used, []);
+  return { ...r, started, log, skipDate: "" };
 }
 
 function load(): Save {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || "null");
     if (d && Array.isArray(d.log)) {
+      const today = keyOf(new Date());
+      let started: Prog[] = Array.isArray(d.started)
+        ? d.started
+            .filter((p: Prog) => p && IDEAS[p.idea])
+            .map((p: Prog) => ({ idea: p.idea, date: p.date || today, link: p.link || "", note: p.note || "" }))
+        : [];
+      // older saves kept a single "picked" challenge
+      if (!started.length && IDEAS[d.picked]) started = [{ idea: d.picked, date: today, link: "", note: "" }];
       const ok =
         Array.isArray(d.order) && d.order.length === IDEAS.length &&
         Array.isArray(d.options) && d.options.length === 3 && d.options.every((n: number) => IDEAS[n]);
       if (ok) {
-        return {
-          order: d.order, cursor: d.cursor || 0, options: d.options, log: d.log,
-          picked: IDEAS[d.picked] ? d.picked : null, skipDate: d.skipDate || "",
-        };
+        return { order: d.order, cursor: d.cursor || 0, options: d.options, log: d.log, started, skipDate: d.skipDate || "" };
       }
-      return fresh(d.log);
+      return fresh(d.log, started);
     }
   } catch {}
   return fresh();
@@ -108,7 +115,7 @@ const AI_CSS = `
 .ai-stat{display:flex;flex-direction:column;align-items:flex-end}
 .ai-stat strong{font-size:clamp(1.6rem,4vw,2.25rem);font-weight:800;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
 .ai-stat span{font-size:.85rem;font-weight:600;opacity:.75;margin-top:.25rem}
-.ai-main{padding-bottom:calc(4rem + env(safe-area-inset-bottom,0px))}
+.ai-main{padding-bottom:0}
 .ai-hero{padding-top:clamp(2rem,6vw,4.5rem);display:flex;flex-direction:column;gap:.75rem;align-items:flex-start}
 .ai-num{margin:0;font-size:clamp(1rem,2vw,1.25rem);font-weight:600;opacity:.7;font-variant-numeric:tabular-nums}
 .ai-title{margin:0;font-size:clamp(2.4rem,8vw,6rem);font-weight:800;font-variation-settings:"opsz" 96;line-height:.98;
@@ -143,27 +150,49 @@ const AI_CSS = `
 .ai-section{margin-top:clamp(2.5rem,6vw,4.5rem)}
 .ai-h2{margin:0 0 .35rem;font-size:clamp(1.5rem,3vw,2.25rem);font-weight:800;letter-spacing:-.02em}
 .ai-note{margin:0 0 1.25rem;font-size:1rem;opacity:.8}
-.ai-scroller{overflow-x:auto;padding-bottom:.5rem}
-.ai-graph{--c:clamp(11px,1.6vw,17px);--g:4px;display:inline-grid;grid-template-columns:auto auto;column-gap:.6rem;row-gap:.35rem}
-.ai-months{grid-column:2;display:grid;grid-auto-flow:column;grid-auto-columns:var(--c);gap:var(--g);height:1rem;font-size:.75rem;font-weight:600}
+.ai-center{text-align:center}
+.ai-center .ai-note{margin-left:auto;margin-right:auto}
+.ai-big{display:flex;justify-content:center;gap:clamp(1.5rem,6vw,4.5rem);flex-wrap:wrap;margin:1.5rem 0 2.25rem}
+.ai-big div{display:flex;flex-direction:column;align-items:center}
+.ai-big strong{font-size:clamp(3rem,10vw,6.5rem);font-weight:800;letter-spacing:-.04em;line-height:.95;font-variant-numeric:tabular-nums}
+.ai-big span{font-size:1rem;font-weight:600;opacity:.8;margin-top:.4rem}
+.ai-scroller{overflow-x:auto;padding-bottom:.5rem;display:flex;justify-content:safe center}
+.ai-graph{--c:clamp(11px,calc((100vw - 9rem)/22),28px);--g:clamp(3px,.5vw,6px);display:inline-grid;grid-template-columns:auto auto;column-gap:.6rem;row-gap:.35rem}
+.ai-months{grid-column:2;display:grid;grid-auto-flow:column;grid-auto-columns:var(--c);gap:var(--g);height:1.1rem;text-align:left;font-size:.85rem;font-weight:600}
 .ai-months span{white-space:nowrap;overflow:visible}
-.ai-wd{display:grid;grid-template-rows:repeat(7,var(--c));gap:var(--g);font-size:.75rem;font-weight:600;line-height:var(--c);text-align:right}
+.ai-wd{display:grid;grid-template-rows:repeat(7,var(--c));gap:var(--g);font-size:.85rem;font-weight:600;line-height:var(--c);text-align:right}
 .ai-weeks{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,var(--c));grid-auto-columns:var(--c);gap:var(--g)}
-.ai-cell{width:var(--c);height:var(--c);border-radius:3px;background:var(--ink);opacity:.13}
+.ai-cell{width:var(--c);height:var(--c);border-radius:clamp(3px,.4vw,6px);background:var(--ink);opacity:.13}
 .ai-cell.l1{opacity:.55}.ai-cell.l2{opacity:1}
 .ai-cell.future{visibility:hidden}
 .ai-cell.today{outline:2px solid var(--ink);outline-offset:1px}
-.ai-legend{--c:13px;display:flex;align-items:center;gap:.4rem;margin-top:.75rem;font-size:.8rem;font-weight:600}
-.ai-legend .ai-cell{display:inline-block}
-.ai-hundred{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:.4rem;max-width:36rem}
-.ai-day{aspect-ratio:1;display:grid;place-items:center;border:2px solid var(--ink);border-radius:.6rem;background:transparent;
-  font-size:.8rem;font-weight:600;font-variant-numeric:tabular-nums;padding:0;opacity:.55}
-.ai-day.done{background:var(--ink);color:var(--bg);opacity:1}
-.ai-day.now{opacity:1;outline:3px solid var(--ink);outline-offset:2px}
+.ai-legend{--c:14px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1rem;font-size:.9rem;font-weight:600}
+.ai-legend span{display:inline-flex;align-items:center;gap:.5rem}
+.ai-legend .ai-cell{display:inline-block;flex:none}
+.ai-legend i{font-style:normal}
+.ai-full{padding-bottom:calc(4rem + env(safe-area-inset-bottom,0px))}
+.ai-hundred{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:2px;width:100%;padding:0 clamp(.5rem,1.5vw,1.25rem)}
+.dt-root .ai-day{aspect-ratio:1;display:grid;place-items:center;border:0;border-radius:0;
+  background:rgba(127,127,127,.2);background:color-mix(in srgb,var(--ink) 14%,transparent);
+  color:var(--ink);color:color-mix(in srgb,var(--ink) 60%,transparent);
+  font-size:clamp(.6rem,1.1vw,.95rem);font-weight:600;font-variant-numeric:tabular-nums;padding:0}
+.dt-root .ai-day.done{background:var(--ink);color:var(--bg)}
+.dt-root .ai-day.now{background:transparent;color:var(--ink);outline:3px solid var(--ink);outline-offset:-3px}
 .ai-peek{margin:1rem 0 0;font-weight:600;min-height:3rem;max-width:44rem}
 .ai-peek a{color:inherit}
 .ai-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ai-prog{margin-top:clamp(1.5rem,4vw,2.5rem)}
+.ai-prog .ai-note{margin-bottom:1rem}
+.ai-cards.ai-prog-cards{margin-top:0}
+.ai-pcard{min-height:0}
+.ai-pcard:hover{transform:none}
+.ai-pcard[data-active="true"]{background:var(--ink);color:var(--bg)}
+.ai-acts{display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:auto}
+.ai-count{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;padding:0 .45em;border-radius:999px;background:var(--ink);color:var(--bg);font-size:.6em;vertical-align:middle;margin-left:.5rem}
+.ai-saved{margin:0;font-size:.95rem;font-weight:600;opacity:.8}
+.ai-doing{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap}
 @media (max-width:860px){
+  .ai-hundred{grid-template-columns:repeat(10,minmax(0,1fr))}
   .ai-cards{grid-template-columns:1fr}
   .ai-card{min-height:0}
   .ai-panel{grid-template-columns:1fr}
@@ -184,12 +213,15 @@ function Dots({ level }: { level: number }) {
   );
 }
 
+function fmt(k: string) {
+  return parseKey(k).toLocaleDateString("en", { day: "numeric", month: "short" });
+}
+
 function Detail(props: {
-  it: Idea; day: number; picked: boolean; link: string; note: string;
-  setLink: (v: string) => void; setNote: (v: string) => void;
-  onStart: () => void; onComplete: () => void;
+  it: Idea; day: number; prog?: Prog; blocked: string;
+  onStart: () => void; onChange: (patch: Partial<Prog>) => void; onComplete: () => void; onDrop: () => void;
 }) {
-  const { it, day, picked, link, note, setLink, setNote, onStart, onComplete } = props;
+  const { it, day, prog, blocked, onStart, onChange, onComplete, onDrop } = props;
   return (
     <>
       <div>
@@ -209,22 +241,27 @@ function Detail(props: {
         <ul className="ai-list">{PORTFOLIO.map((h) => <li key={h}>{h}</li>)}</ul>
       </div>
       <div className="ai-actions">
-        {picked ? (
+        {prog ? (
           <form className="ai-form" onSubmit={(e) => { e.preventDefault(); onComplete(); }}>
+            <p className="ai-saved ai-wide">In progress since {fmt(prog.date)}. Your link and note save on this device as you type.</p>
             <label>
               Project link (optional)
-              <input type="url" inputMode="url" placeholder="https://" value={link} onChange={(e) => setLink(e.target.value)} />
+              <input type="url" inputMode="url" placeholder="https://" value={prog.link} onChange={(e) => onChange({ link: e.target.value })} />
             </label>
             <label>
               One thing you learned (optional)
-              <input type="text" maxLength={140} value={note} onChange={(e) => setNote(e.target.value)} />
+              <input type="text" maxLength={140} value={prog.note} onChange={(e) => onChange({ note: e.target.value })} />
             </label>
-            <div className="ai-wide">
-              <button className="dt-draw" type="submit">Mark Day {day} complete</button>
+            <div className="ai-wide ai-doing">
+              {blocked ? <p className="ai-saved">{blocked}</p> : <button className="dt-draw" type="submit">Mark Day {day} complete</button>}
+              <button className="dt-link" type="button" onClick={onDrop}>Remove from In progress</button>
             </div>
           </form>
         ) : (
-          <button className="dt-draw" type="button" onClick={onStart}>Start this challenge</button>
+          <div className="ai-doing">
+            <button className="dt-draw" type="button" onClick={onStart}>Start this challenge</button>
+            <p className="ai-saved">Starting saves it under In progress, so you can leave and come back.</p>
+          </div>
         )}
       </div>
     </>
@@ -235,12 +272,12 @@ function Detail(props: {
 export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
   const [s, setS] = useState<Save>(() => load());
   const [focus, setFocus] = useState<number | null>(null);
-  const [link, setLink] = useState("");
-  const [note, setNote] = useState("");
   const [msg, setMsg] = useState("");
   const [peek, setPeek] = useState<number | null>(null);
+  const [swatch] = useState(() => Math.floor(Math.random() * SWATCHES.length));
   const [copyLabel, setCopyLabel] = useState("Copy my log");
   const panelRef = useRef<HTMLElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const reduce = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} }, [s]);
@@ -252,37 +289,58 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
   const day = Math.min(done + 1, DAYS);
   const lastDate = done ? s.log[done - 1].date : "";
   const locked = !finished && lastDate === todayKey && s.skipDate !== todayKey;
-  const shown = focus ?? s.picked;
+  const shown = focus;
+  const prog = shown !== null ? s.started.find((p) => p.idea === shown) : undefined;
+  const blocked = finished
+    ? "All 100 days are logged."
+    : locked
+    ? `You've shipped today's challenge. Log this one tomorrow, or use "Start Day ${day} now" at the top.`
+    : "";
 
   const counts = new Map<string, number>();
   s.log.forEach((e) => counts.set(e.date, (counts.get(e.date) || 0) + 1));
   const { cur, best } = streaks(new Set(counts.keys()), now);
 
-  const [bg, ink] = SWATCHES[((day - 1) * 5 + 3) % SWATCHES.length];
+  const [bg, ink] = SWATCHES[swatch];
 
-  const choose = (id: number) => {
+  const taken = (log: Entry[], started: Prog[]) => new Set([...log.map((e) => e.idea), ...started.map((p) => p.idea)]);
+
+  const open = (id: number) => {
     setFocus(id);
     setMsg("");
     window.setTimeout(() => panelRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" }), 30);
   };
 
-  const start = () => { if (shown !== null) setS((p) => ({ ...p, picked: shown })); };
+  const start = (id: number) =>
+    setS((p) => (p.started.some((x) => x.idea === id) ? p : { ...p, started: [...p.started, { idea: id, date: todayKey, link: "", note: "" }] }));
 
-  const complete = () => {
-    if (s.picked === null) return;
-    const entry: Entry = { day, idea: s.picked, date: todayKey, link: link.trim(), note: note.trim() };
-    const log = [...s.log, entry];
-    const r = pick3(s.order, s.cursor, new Set(log.map((e) => e.idea)), []);
-    setS({ ...s, log, order: r.order, cursor: r.cursor, options: r.options, picked: null });
-    setFocus(null); setLink(""); setNote("");
-    setMsg(log.length >= DAYS ? "Day 100 logged. You did it." : `Day ${day} logged. Your streak is ${streaks(new Set([...counts.keys(), todayKey]), new Date()).cur}.`);
-    window.scrollTo?.(0, 0);
+  const edit = (id: number, patch: Partial<Prog>) =>
+    setS((p) => ({ ...p, started: p.started.map((x) => (x.idea === id ? { ...x, ...patch } : x)) }));
+
+  const drop = (id: number) => {
+    if (!window.confirm(`Remove "${IDEAS[id].title}" from In progress? Its saved link and note will be deleted.`)) return;
+    setS((p) => ({ ...p, started: p.started.filter((x) => x.idea !== id) }));
+    if (focus === id) setFocus(null);
   };
 
-  const reshuffle = () => {
-    const r = pick3(s.order, s.cursor, new Set(s.log.map((e) => e.idea)), s.options);
-    setS({ ...s, order: r.order, cursor: r.cursor, options: r.options, picked: null });
+  const complete = (id: number) => {
+    const p = s.started.find((x) => x.idea === id);
+    if (!p || blocked) return;
+    const entry: Entry = { day, idea: id, date: todayKey, link: p.link.trim(), note: p.note.trim() };
+    const log = [...s.log, entry];
+    const started = s.started.filter((x) => x.idea !== id);
+    const r = pick3(s.order, s.cursor, taken(log, started), []);
+    setS({ ...s, log, started, order: r.order, cursor: r.cursor, options: r.options });
     setFocus(null);
+    setMsg(log.length >= DAYS ? "Day 100 logged. You did it." : `Day ${day} logged. Your streak is ${streaks(new Set([...counts.keys(), todayKey]), new Date()).cur}.`);
+    rootRef.current?.scrollTo({ top: 0 });
+  };
+
+  // Shuffling only swaps today's three options. Anything you started stays in In progress.
+  const reshuffle = () => {
+    const r = pick3(s.order, s.cursor, taken(s.log, s.started), s.options);
+    setS({ ...s, order: r.order, cursor: r.cursor, options: r.options });
+    setFocus((f) => (f !== null && s.started.some((x) => x.idea === f) ? f : null));
   };
 
   const unlock = () => setS((p) => ({ ...p, skipDate: todayKey }));
@@ -316,7 +374,7 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
   const peekEntry = peek !== null ? s.log[peek - 1] : null;
 
   return (
-    <div className="dt-root dt-scroll" style={{ ["--bg" as any]: bg, ["--ink" as any]: ink }}>
+    <div className="dt-root dt-scroll" ref={rootRef} style={{ ["--bg" as any]: bg, ["--ink" as any]: ink }}>
       <style>{CSS}</style>
 
       <header className="dt-header dt-pad">
@@ -347,17 +405,43 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
           {locked && <button className="dt-draw" type="button" onClick={unlock}>Start Day {day} now</button>}
         </section>
 
+        {s.started.length > 0 && (
+          <section className="ai-prog" aria-labelledby="ai-prog-h">
+            <h2 className="ai-h2" id="ai-prog-h">In progress<span className="ai-count" aria-label={`${s.started.length} started`}>{s.started.length}</span></h2>
+            <p className="ai-note">Challenges you've started. They stay here until you mark them complete or remove them.</p>
+            <div className="ai-cards ai-prog-cards">
+              {s.started.map((p) => {
+                const it = IDEAS[p.idea];
+                return (
+                  <div key={p.idea} className="ai-card ai-pcard" data-active={shown === p.idea}>
+                    <span className="ai-meta">{CATS[it.cat]} <Dots level={it.level} /></span>
+                    <h3>{it.title}</h3>
+                    <p className="ai-saved">
+                      Started {fmt(p.date)}{p.link ? ", link saved" : ""}{p.note ? ", note saved" : ""}
+                    </p>
+                    <span className="ai-acts">
+                      <button className="dt-link" type="button" onClick={() => open(p.idea)}>Continue</button>
+                      <button className="dt-link" type="button" onClick={() => drop(p.idea)}>Remove</button>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {!locked && !finished && (
           <section aria-label={`Day ${day} challenges`}>
             <div className="ai-cards">
               {s.options.map((id) => {
                 const it = IDEAS[id];
+                const going = s.started.some((x) => x.idea === id);
                 return (
-                  <button key={id} type="button" className="ai-card" aria-pressed={shown === id} onClick={() => choose(id)}>
+                  <button key={id} type="button" className="ai-card" aria-pressed={shown === id} onClick={() => open(id)}>
                     <span className="ai-meta">{CATS[it.cat]} <Dots level={it.level} /></span>
                     <h3>{it.title}</h3>
                     <p>{it.problem}</p>
-                    <span className="ai-go">{s.picked === id ? "In progress" : shown === id ? "Selected" : "See the challenge"}</span>
+                    <span className="ai-go">{going ? "In progress" : shown === id ? "Selected" : "See the challenge"}</span>
                   </button>
                 );
               })}
@@ -365,23 +449,29 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
             <div className="ai-row">
               <button className="dt-link" type="button" onClick={reshuffle}>Show me three different ones</button>
             </div>
-            {shown !== null && (
-              <section className="ai-panel" ref={panelRef} aria-label="Challenge details">
-                <Detail
-                  it={IDEAS[shown]} day={day} picked={s.picked === shown}
-                  link={link} note={note} setLink={setLink} setNote={setNote}
-                  onStart={start} onComplete={complete}
-                />
-              </section>
-            )}
           </section>
         )}
 
-        <section className="ai-section" aria-labelledby="ai-streak-h">
+        {shown !== null && (
+          <section className="ai-panel" ref={panelRef} aria-label="Challenge details">
+            <Detail
+              it={IDEAS[shown]} day={day} prog={prog} blocked={blocked}
+              onStart={() => start(shown)} onChange={(patch) => edit(shown, patch)}
+              onComplete={() => complete(shown)} onDrop={() => drop(shown)}
+            />
+          </section>
+        )}
+
+        <section className="ai-section ai-center" aria-labelledby="ai-streak-h">
           <h2 className="ai-h2" id="ai-streak-h">Your streak</h2>
           <p className="ai-note">
             {done} {done === 1 ? "challenge" : "challenges"} shipped. Current streak {cur}, best {best}.
           </p>
+          <div className="ai-big" aria-hidden="true">
+            <div><strong>{cur}</strong><span>current streak</span></div>
+            <div><strong>{best}</strong><span>best streak</span></div>
+            <div><strong>{done}</strong><span>shipped</span></div>
+          </div>
           <div className="ai-scroller">
             <div className="ai-graph" role="img" aria-label={`Contribution graph for the last ${WEEKS} weeks: ${done} challenges shipped, current streak ${cur} days, best streak ${best} days`}>
               <div className="ai-months" aria-hidden="true">
@@ -407,14 +497,20 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
             </div>
           </div>
           <div className="ai-legend" aria-hidden="true">
-            Less <span className="ai-cell" /> <span className="ai-cell l1" /> <span className="ai-cell l2" /> More
+            <span><i className="ai-cell" /> No challenge</span>
+            <span><i className="ai-cell l1" /> 1 challenge</span>
+            <span><i className="ai-cell l2" /> 2+ in a day</span>
           </div>
         </section>
 
-        <section className="ai-section" aria-labelledby="ai-100-h">
+      </main>
+
+      <section className="ai-section ai-full" aria-labelledby="ai-100-h">
+        <div className="dt-pad">
           <h2 className="ai-h2" id="ai-100-h">The 100</h2>
           <p className="ai-note">Select a finished day to see what you built.</p>
-          <div className="ai-hundred">
+        </div>
+        <div className="ai-hundred">
             {Array.from({ length: DAYS }, (_, i) => {
               const n = i + 1;
               const e = s.log[i];
@@ -433,6 +529,7 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
               );
             })}
           </div>
+        <div className="dt-pad">
           <p className="ai-peek" aria-live="polite">
             {peekEntry && (
               <>
@@ -446,8 +543,8 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
             <button className="dt-link" type="button" onClick={copyLog} disabled={!done}>{copyLabel}</button>
             <button className="dt-link" type="button" onClick={reset}>Reset progress</button>
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
     </div>
   );
 }
