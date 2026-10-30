@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { SWATCHES, SHARED_CSS } from "./theme";
+import ModeSwitch, { type Mode } from "./ModeSwitch";
+import AI100 from "./AI100";
 
 const TOPICS: string[] = [
   "Gestalt: proximity",
@@ -618,12 +621,6 @@ const TOPICS: string[] = [
   "Case study writing for designers"
 ];
 
-const SWATCHES: [string, string][] = [
-  ["#2337C6", "#FFD8F0"], ["#0E5E4E", "#D4F25B"], ["#FF4F9A", "#2A0A3D"],
-  ["#F7D44C", "#1B1A6B"], ["#6B2FB3", "#F9E27D"], ["#D9E8FF", "#0D2A8A"],
-  ["#C8F0D8", "#0B4F3A"], ["#B5121B", "#FFE3D6"], ["#FF8A3D", "#22114A"],
-  ["#14213D", "#9FE7F5"], ["#E3F55B", "#3A1A5E"], ["#7FD1C3", "#3B0A2A"],
-];
 
 const KEY = "design-topic-deck-v2";
 
@@ -693,26 +690,12 @@ async function copyText(text: string) {
   }
 }
 
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap');
-.dt-root{position:fixed;inset:0;overflow:hidden;background:var(--bg);color:var(--ink);
-  font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-  transition:background-color .6s ease,color .6s ease;-webkit-font-smoothing:antialiased}
-.dt-root *{box-sizing:border-box}
-.dt-pad{padding-left:max(clamp(1.25rem,4vw,3rem),calc((100% - 1200px)/2 + clamp(1.25rem,4vw,3rem)));
-  padding-right:max(clamp(1.25rem,4vw,3rem),calc((100% - 1200px)/2 + clamp(1.25rem,4vw,3rem)))}
-.dt-header{position:absolute;top:0;left:0;right:0;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;
-  gap:1rem;flex-wrap:wrap;padding-top:calc(clamp(1.25rem,4vw,3rem) + env(safe-area-inset-top,0px))}
-.dt-mark{font-size:1rem;font-weight:600;margin:0;opacity:.75;padding-top:.4rem}
+const CSS = SHARED_CSS + `
 .dt-timer{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;justify-content:flex-end}
 .dt-clock{font-size:clamp(1.6rem,4vw,2.25rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .dt-clock.done{animation:dtpulse 1s ease-in-out infinite}
 @keyframes dtpulse{50%{opacity:.3}}
 .dt-mins{display:flex;align-items:center;gap:.35rem;font-size:.95rem;font-weight:600}
-.dt-root input{font:inherit;color:var(--ink);background:transparent;border:2px solid var(--ink);border-radius:.6rem;
-  padding:.45rem .55rem;font-weight:600;transition:color .6s ease,border-color .6s ease}
-.dt-root button{font:inherit;color:inherit;cursor:pointer}
-.dt-ghost{background:transparent;border:2px solid var(--ink);border-radius:999px;padding:.45rem 1rem;font-size:.95rem;font-weight:600}
 .dt-stage{position:absolute;inset:0;z-index:1;pointer-events:none;display:flex;flex-direction:column;justify-content:center;
   align-items:flex-start;text-align:left;gap:.75rem;padding-top:8rem;padding-bottom:8rem}
 .dt-stage>*{pointer-events:auto}
@@ -725,19 +708,12 @@ const CSS = `
 @keyframes dtland{from{transform:translateY(.12em) scale(.98)}to{transform:none}}
 .dt-bar{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;gap:1rem 1.25rem;flex-wrap:wrap;
   padding-top:1rem;padding-bottom:calc(1rem + 20px + env(safe-area-inset-bottom,0px));background:var(--bg);transition:background-color .6s ease}
-.dt-draw{background:var(--ink)!important;color:var(--bg)!important;border:0;border-radius:999px;padding:1rem 1.75rem;font-size:1.125rem;font-weight:600;
-  transition:transform .15s ease,background-color .6s ease,color .6s ease}
-.dt-draw:active{transform:scale(.97)}
-.dt-link{background:none;border:0;padding:.5rem 0;font-size:1rem;font-weight:600;text-decoration:underline;text-underline-offset:.25em;text-decoration-thickness:2px}
 .dt-goto{display:flex;align-items:center;gap:.4rem;font-size:1rem;font-weight:600;margin-left:auto}
 .dt-goto input{width:5rem}
-.dt-msg{font-size:.95rem;font-weight:600;opacity:.85}
-.dt-root button:focus-visible,.dt-root input:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
-@media (max-width:600px){.dt-timer{justify-content:flex-start}.dt-stage{padding-top:11rem;padding-bottom:11rem}}
-@media (prefers-reduced-motion: reduce){.dt-root *{animation:none!important;transition:none!important}}
+@media (max-width:600px){.dt-timer{justify-content:flex-start}.dt-stage{padding-top:13rem;padding-bottom:11rem}}
 `;
 
-export default function App() {
+function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
   const [state, setState] = useState<Saved>(() => load());
   const [swatch, setSwatch] = useState<number>(-1);
   const [display, setDisplay] = useState<{ text: string; num: string; mode: "hint" | "rolling" | "in" | "still" }>(() => {
@@ -858,7 +834,10 @@ export default function App() {
       <style>{CSS}</style>
 
       <header className="dt-header dt-pad">
-        <p className="dt-mark">Design, one topic at a time</p>
+        <div className="dt-brand">
+          <p className="dt-mark">Design, one topic at a time</p>
+          <ModeSwitch mode={mode} onChange={onMode} />
+        </div>
         <div className="dt-timer" role="group" aria-label="Research timer">
           {clockShown && <span className={`dt-clock${done ? " done" : ""}`}>{clockText}</span>}
           <label className="dt-mins">
@@ -894,4 +873,37 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+const MODE_KEY = "dt-mode";
+
+function initialMode(): Mode {
+  try {
+    if (location.hash === "#100-days-of-ai") return "ai";
+    if (location.hash === "#topics") return "topics";
+    return localStorage.getItem(MODE_KEY) === "ai" ? "ai" : "topics";
+  } catch { return "topics"; }
+}
+
+export default function App() {
+  const [mode, setMode] = useState<Mode>(initialMode);
+
+  const change = useCallback((m: Mode) => {
+    setMode(m);
+    try { localStorage.setItem(MODE_KEY, m); } catch {}
+    try { history.replaceState(null, "", m === "ai" ? "#100-days-of-ai" : "#topics"); } catch {}
+    try { window.scrollTo(0, 0); } catch {}
+  }, []);
+
+  useEffect(() => {
+    document.title = mode === "ai" ? "100 Days of AI" : "Design Topic Generator";
+    const onHash = () => {
+      if (location.hash === "#100-days-of-ai") setMode("ai");
+      else if (location.hash === "#topics") setMode("topics");
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [mode]);
+
+  return mode === "ai" ? <AI100 mode={mode} onMode={change} /> : <TopicGenerator mode={mode} onMode={change} />;
 }
