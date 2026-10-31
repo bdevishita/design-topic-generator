@@ -160,6 +160,8 @@ button.ai-card:not(:disabled):hover{transform:translateY(-3px)}
 .ai-count{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;padding:0 .45em;border-radius:999px;background:var(--ink);color:var(--bg);font-size:.6em;vertical-align:middle;margin-left:.5rem}
 .ai-split{display:grid;grid-template-columns:minmax(15rem,24rem) minmax(0,1fr);gap:1.5rem;align-items:start}
 .ai-list-col{display:grid;gap:.75rem;align-content:start}
+.ai-split.closed{grid-template-columns:1fr}
+.ai-split.closed .ai-list-col{grid-template-columns:repeat(auto-fill,minmax(15rem,1fr))}
 .ai-pcard{min-height:0;gap:.4rem;padding:1rem 1.1rem}
 .ai-pcard h3{font-size:clamp(1.2rem,2vw,1.5rem)}
 .ai-pcard[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
@@ -380,6 +382,7 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
   const [s, setS] = useState<Save>(() => load());
   const [dialog, setDialog] = useState<Dialog>(null);
   const [selId, setSelId] = useState<number | null>(null);
+  const [paneOpen, setPaneOpen] = useState(true);
   const [msg, setMsg] = useState("");
   const [peek, setPeek] = useState<number | null>(null);
   const [roll, setRoll] = useState<Slot[] | null>(null);
@@ -473,12 +476,15 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
 
   const openInProgress = (id: number) => {
     setSelId(id);
+    setPaneOpen(true);
     setDialog(null);
     scrollTo(progRef.current);
   };
 
   const pickProg = (id: number) => {
+    if (paneOpen && sel?.idea === id) { setPaneOpen(false); return; }
     setSelId(id);
+    setPaneOpen(true);
     if (window.matchMedia?.("(max-width: 860px)").matches) scrollTo(paneRef.current);
   };
 
@@ -601,12 +607,12 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
             <section className="ai-prog" ref={progRef} aria-labelledby="ai-prog-h">
               <h2 className="ai-h2" id="ai-prog-h">In progress<span className="ai-count" aria-label={`${s.started.length} started`}>{s.started.length}</span></h2>
               <p className="ai-note">Challenges you've started. They stay here until you mark them complete or remove them.</p>
-              <div className="ai-split">
+              <div className={"ai-split" + (paneOpen ? "" : " closed")}>
                 <div className="ai-list-col">
                   {s.started.map((p) => {
                     const it = IDEAS[p.idea];
                     return (
-                      <button key={p.idea} type="button" className="ai-card ai-pcard" aria-pressed={sel.idea === p.idea} onClick={() => pickProg(p.idea)}>
+                      <button key={p.idea} type="button" className="ai-card ai-pcard" aria-expanded={paneOpen && sel.idea === p.idea} aria-pressed={paneOpen && sel.idea === p.idea} onClick={() => pickProg(p.idea)}>
                         <span className="ai-meta">{CATS[it.cat]} <Dots level={it.level} /></span>
                         <h3>{it.title}</h3>
                         <span className="ai-saved">Started {fmt(p.date)}{p.link ? ", link saved" : ""}{p.note ? ", note saved" : ""}</span>
@@ -614,7 +620,7 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
                     );
                   })}
                 </div>
-                <article className="ai-pane" ref={paneRef} aria-label={`${IDEAS[sel.idea].title} details`}>
+                {paneOpen && <article className="ai-pane" ref={paneRef} aria-label={`${IDEAS[sel.idea].title} details`}>
                   <Meta it={IDEAS[sel.idea]} />
                   <h3 className="ai-ptitle">{IDEAS[sel.idea].title}</h3>
                   <ChallengeInfo it={IDEAS[sel.idea]} deep />
@@ -633,7 +639,7 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
                       <button className="dt-link" type="button" onClick={() => drop(sel.idea)}>Remove from In progress</button>
                     </div>
                   </form>
-                </article>
+                </article>}
               </div>
             </section>
           )}
