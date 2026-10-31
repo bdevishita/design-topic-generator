@@ -6,7 +6,7 @@ export const SWATCHES: [string, string][] = [
 ];
 
 export const SHARED_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&display=swap');
 .dt-root{position:fixed;inset:0;overflow:hidden;background:var(--bg);color:var(--ink);
   font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   transition:background-color .6s ease,color .6s ease;-webkit-font-smoothing:antialiased}
