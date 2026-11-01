@@ -117,7 +117,7 @@ async function copy(text: string) {
 /* ---------- styles ---------- */
 const AI_CSS = `
 /* the coloured layer (.dt-root) never scrolls, an inner wrapper does, so the colour transition always repaints */
-.ai-scroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.ai-scroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column}
 .ai-scroll .dt-header{position:relative}
 
 /* header stats: both open a popup */
@@ -129,13 +129,14 @@ const AI_CSS = `
 .ai-stat span{font-size:.85rem;font-weight:600;opacity:.85;margin-top:.3rem;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:.25em}
 
 /* today */
-.ai-main{padding-bottom:calc(4rem + env(safe-area-inset-bottom,0px))}
+.ai-main{flex:1 0 auto;padding-bottom:calc(4rem + env(safe-area-inset-bottom,0px))}
+/* same bottom bar as the topic generator; sticky so it stays put while the page scrolls, and sits clear of the scrollbar */
+.ai-scroll .dt-bar{position:sticky;flex:none}
 .ai-hero{padding-top:clamp(2rem,6vw,4.5rem);display:flex;flex-direction:column;gap:.75rem;align-items:flex-start}
 .ai-num{margin:0;font-size:clamp(1rem,2vw,1.25rem);font-weight:600;opacity:.7;font-variant-numeric:tabular-nums}
-.ai-title{margin:0;font-size:clamp(2.4rem,8vw,6rem);font-weight:500;font-variation-settings:"opsz" 96;line-height:1;
+.ai-title{margin:0;opacity:.7;font-size:clamp(2.4rem,8vw,6rem);font-weight:500;font-variation-settings:"opsz" 96;line-height:1;
   letter-spacing:-.035em;max-width:16ch;text-wrap:balance;overflow-wrap:break-word}
 .ai-sub{margin:0;font-size:clamp(1.05rem,1.6vw,1.25rem);font-weight:400;max-width:42ch;opacity:.85}
-.ai-hero .dt-draw{margin-top:.75rem}
 .ai-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:clamp(1.5rem,4vw,2.5rem)}
 .ai-card{text-align:left;background:transparent;border:2px solid var(--ink);border-radius:1.25rem;padding:1.25rem;display:flex;
   flex-direction:column;gap:.6rem;min-height:15rem;transition:transform .15s ease,background-color .3s ease,color .3s ease}
@@ -562,10 +563,6 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
                   : "Three challenges, each from a different part of life. Choose the one you can ship before bed."}
               </p>
               <p className="dt-msg" aria-live="polite">{msg}</p>
-              {locked && <button className="dt-draw" type="button" onClick={unlock}>Start Day {day} now</button>}
-              {!locked && !finished && !cards && (
-                <button className="dt-draw" type="button" onClick={() => playReveal(s.options)}>Reveal today's challenges</button>
-              )}
               <p className="ai-sr" aria-live="polite">{roll ? "Revealing today's challenges" : ""}</p>
             </div>
 
@@ -642,6 +639,16 @@ export default function AI100({ mode, onMode }: { mode: Mode; onMode: (m: Mode) 
             </section>
           )}
         </main>
+
+        {(locked || (!finished && !cards)) && (
+          <div className="dt-bar dt-pad">
+            {locked ? (
+              <button className="dt-draw" type="button" onClick={unlock}>Start Day {day} now</button>
+            ) : (
+              <button className="dt-draw" type="button" onClick={() => playReveal(s.options)}>Reveal today's challenges</button>
+            )}
+          </div>
+        )}
       </div>
 
       {dialog?.kind === "idea" && (() => {

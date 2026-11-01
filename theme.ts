@@ -32,5 +32,7 @@ export const SHARED_CSS = `
   transition:transform .15s ease,background-color .6s ease,color .6s ease}
 .dt-draw:active{transform:scale(.97)}
 .dt-msg{font-size:.95rem;font-weight:600;opacity:.85}
+.dt-bar{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;gap:1rem 1.25rem;flex-wrap:wrap;
+  padding-top:1rem;padding-bottom:calc(1rem + 20px + env(safe-area-inset-bottom,0px));background:var(--bg);transition:background-color .6s ease}
 .dt-link:disabled{opacity:.4;cursor:default;text-decoration:none}
 `;

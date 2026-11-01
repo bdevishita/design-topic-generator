@@ -706,8 +706,6 @@ const CSS = SHARED_CSS + `
 .dt-topic.rolling{opacity:.45;filter:blur(.5px)}
 .dt-topic.in{animation:dtland .5s cubic-bezier(.2,1.4,.4,1)}
 @keyframes dtland{from{transform:translateY(.12em) scale(.98)}to{transform:none}}
-.dt-bar{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;gap:1rem 1.25rem;flex-wrap:wrap;
-  padding-top:1rem;padding-bottom:calc(1rem + 20px + env(safe-area-inset-bottom,0px));background:var(--bg);transition:background-color .6s ease}
 .dt-goto{display:flex;align-items:center;gap:.4rem;font-size:1rem;font-weight:600;margin-left:auto}
 .dt-goto input{width:5rem}
 @media (max-width:600px){.dt-timer{justify-content:flex-start}.dt-stage{padding-top:13rem;padding-bottom:11rem}}
