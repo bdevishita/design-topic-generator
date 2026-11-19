@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { SWATCHES, SHARED_CSS } from "./theme";
 import ModeSwitch, { type Mode } from "./ModeSwitch";
 import AI100 from "./AI100";
+import Modal, { MODAL_CSS } from "./Modal";
+import { STREAK_CSS, StreakBody, StreakStat, useDailyStreak } from "./Streak";
 
 const TOPICS: string[] = [
   "Gestalt: proximity",
@@ -690,7 +692,8 @@ async function copyText(text: string) {
   }
 }
 
-const CSS = SHARED_CSS + `
+const CSS = SHARED_CSS + MODAL_CSS + STREAK_CSS + `
+.dt-right{display:flex;align-items:flex-start;gap:.75rem 1.75rem;flex-wrap:wrap;justify-content:flex-end}
 .dt-timer{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;justify-content:flex-end}
 .dt-clock{font-size:clamp(1.6rem,4vw,2.25rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .dt-clock.done{animation:dtpulse 1s ease-in-out infinite}
@@ -708,7 +711,7 @@ const CSS = SHARED_CSS + `
 @keyframes dtland{from{transform:translateY(.12em) scale(.98)}to{transform:none}}
 .dt-goto{display:flex;align-items:center;gap:.4rem;font-size:1rem;font-weight:600;margin-left:auto}
 .dt-goto input{width:5rem}
-@media (max-width:600px){.dt-timer{justify-content:flex-start}.dt-stage{padding-top:13rem;padding-bottom:11rem}}
+@media (max-width:600px){.dt-right,.dt-timer{justify-content:flex-start}.dt-stage{padding-top:16rem;padding-bottom:11rem}}
 `;
 
 function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
@@ -725,6 +728,11 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
   const [gotoVal, setGotoVal] = useState("");
   const [msg, setMsg] = useState("");
   const [landKey, setLandKey] = useState(0);
+
+  // daily streak: a day counts once you draw a topic on it
+  const streak = useDailyStreak();
+  const { record: recordDraw } = streak;
+  const [streakOpen, setStreakOpen] = useState(false);
 
   // timer
   const [mins, setMins] = useState<number>(() => load().mins || 30);
@@ -762,6 +770,7 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
     let deck = state.deck.length ? [...state.deck] : freshDeck();
     const idx = deck.pop() as number;
     setState((s) => ({ ...s, deck, current: idx }));
+    recordDraw();
     if (reduce) { land(idx); return; }
     setRolling(true);
     let delay = 45, elapsed = 0;
@@ -773,7 +782,7 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
       else { land(idx); setRolling(false); }
     };
     tick();
-  }, [rolling, state.deck, reduce, land]);
+  }, [rolling, state.deck, reduce, land, recordDraw]);
 
   const goTo = () => {
     const n = parseInt(gotoVal, 10);
@@ -792,12 +801,13 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (streakOpen) return; // the popup is open, Space shouldn't draw behind it
       const tag = (document.activeElement as HTMLElement | null)?.tagName;
       if (e.code === "Space" && tag !== "BUTTON" && tag !== "INPUT") { e.preventDefault(); draw(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draw]);
+  }, [draw, streakOpen]);
 
   // timer loop
   useEffect(() => {
@@ -836,14 +846,17 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
           <p className="dt-mark">Design, one topic at a time</p>
           <ModeSwitch mode={mode} onChange={onMode} />
         </div>
-        <div className="dt-timer" role="group" aria-label="Research timer">
-          {clockShown && <span className={`dt-clock${done ? " done" : ""}`}>{clockText}</span>}
-          <label className="dt-mins">
-            <input type="number" min={1} max={600} value={mins} aria-label="Minutes"
-              onChange={(e) => setMins(parseInt(e.target.value, 10) || 0)} /> min
-          </label>
-          <button className="dt-ghost" type="button" onClick={startPause}>{startLabel}</button>
-          <button className="dt-ghost" type="button" onClick={reset}>Reset</button>
+        <div className="dt-right">
+          <StreakStat cur={streak.cur} onOpen={() => setStreakOpen(true)} />
+          <div className="dt-timer" role="group" aria-label="Research timer">
+            {clockShown && <span className={`dt-clock${done ? " done" : ""}`}>{clockText}</span>}
+            <label className="dt-mins">
+              <input type="number" min={1} max={600} value={mins} aria-label="Minutes"
+                onChange={(e) => setMins(parseInt(e.target.value, 10) || 0)} /> min
+            </label>
+            <button className="dt-ghost" type="button" onClick={startPause}>{startLabel}</button>
+            <button className="dt-ghost" type="button" onClick={reset}>Reset</button>
+          </div>
         </div>
       </header>
 
@@ -869,6 +882,12 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
         </label>
         <button className="dt-link" type="button" onClick={goTo}>Open</button>
       </div>
+
+      {streakOpen && (
+        <Modal title="Your streak" onClose={() => setStreakOpen(false)}>
+          <StreakBody log={streak.log} todayKey={streak.todayKey} now={streak.now} cur={streak.cur} best={streak.best} total={streak.total} drawnToday={streak.drawnToday} />
+        </Modal>
+      )}
     </div>
   );
 }
