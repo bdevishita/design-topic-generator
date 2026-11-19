@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { addDays, fmtDateLong, keyOf, parseKey } from "./dates";
 
 // A daily streak for the design topic generator: a day counts once you draw a topic on it.
-const WEEKS = 20;
 
 export const STREAK_KEY = "design-streak-v1";
 
@@ -65,21 +64,20 @@ export const STREAK_CSS = `
 .st-big div{display:flex;flex-direction:column;align-items:center}
 .st-big strong{font-size:clamp(3rem,10vw,5.5rem);font-weight:800;letter-spacing:-.04em;line-height:.95;font-variant-numeric:tabular-nums}
 .st-big span{font-size:1rem;font-weight:600;opacity:.8;margin-top:.4rem}
-.st-scroller{overflow-x:auto;padding-bottom:.5rem;display:flex;justify-content:safe center}
-.st-graph{--c:clamp(10px,calc((min(100vw,60rem) - 12rem)/21.5),32px);--g:clamp(3px,.5vw,6px);--dow:2.4rem;text-align:left}
-.st-months{display:grid;column-gap:var(--g);margin:0 0 .4rem var(--dow);font-size:.8rem;font-weight:600;line-height:1}
-.st-months span{white-space:nowrap}
-.st-body{display:flex;gap:.5rem}
-.st-dow{width:calc(var(--dow) - .5rem);flex:none;display:grid;grid-template-rows:repeat(7,var(--c));gap:var(--g);font-size:.72rem;font-weight:600;opacity:.75}
-.st-dow span{display:flex;align-items:center;line-height:1}
-.st-weeks{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,var(--c));grid-auto-columns:var(--c);gap:var(--g)}
-.st-cell{width:var(--c);height:var(--c);border-radius:clamp(3px,.4vw,6px);background:var(--ink);opacity:.13}
-.st-cell.l1{opacity:.55}.st-cell.l2{opacity:1}
-.st-cell.future{visibility:hidden}
-.st-cell.today{outline:2px solid var(--ink);outline-offset:1px}
-.st-legend{--c:14px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1rem;font-size:.9rem;font-weight:600}
+.st-month{margin:0 0 1rem;font-size:clamp(1.25rem,3vw,1.6rem);font-weight:800;letter-spacing:-.02em}
+.st-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:clamp(4px,1vw,8px);width:min(100%,30rem);margin:0 auto;text-align:center}
+.st-wd{font-size:.8rem;font-weight:600;opacity:.7;padding-bottom:.15rem}
+.st-day,.st-sw{background:rgba(127,127,127,.2);background:color-mix(in srgb,var(--ink) 14%,transparent)}
+.st-day.l1,.st-sw.l1{background:var(--ink);background:color-mix(in srgb,var(--ink) 65%,transparent)}
+.st-day.l2,.st-sw.l2{background:var(--ink)}
+.st-day{aspect-ratio:1;display:grid;place-items:center;border-radius:clamp(8px,1.6vw,14px);font-size:clamp(.8rem,2.6vw,1.1rem);
+  font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+.st-day.l1,.st-day.l2{color:var(--bg)}
+.st-day.future{background:transparent;opacity:.45}
+.st-day.today{outline:3px solid var(--ink);outline-offset:2px}
+.st-legend{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1.25rem;font-size:.9rem;font-weight:600}
 .st-legend span{display:inline-flex;align-items:center;gap:.5rem}
-.st-legend .st-cell{display:inline-block;flex:none}
+.st-sw{display:inline-block;width:14px;height:14px;border-radius:4px;flex:none}
 
 @media (max-width:860px){
   .dt-root .st-stat{align-items:flex-start;text-align:left}
@@ -96,20 +94,17 @@ export function StreakStat({ cur, onOpen }: { cur: number; onOpen: () => void })
 
 export function StreakBody(p: { log: Record<string, number>; todayKey: string; now: Date; cur: number; best: number; total: number; drawnToday: boolean }) {
   const { log, todayKey, now, cur, best, total, drawnToday } = p;
-  const lastSunday = addDays(now, -now.getDay());
-  const start0 = addDays(lastSunday, -(WEEKS - 1) * 7);
-  const weeks = Array.from({ length: WEEKS }, (_, w) =>
-    Array.from({ length: 7 }, (_, d) => keyOf(addDays(start0, w * 7 + d)))
-  );
-  // month labels like GitHub: one over the week column that contains the 1st of each month
-  const labels: { col: number; text: string }[] = [];
-  weeks.forEach((wk, w) => {
-    const m = parseKey(wk[6]).getMonth();
-    if (w === 0 || m !== parseKey(weeks[w - 1][6]).getMonth()) {
-      labels.push({ col: w, text: parseKey(wk[6]).toLocaleDateString("en", { month: "short" }) });
-    }
+  // this month only, as a calendar (Sunday first)
+  const y = now.getFullYear(), mo = now.getMonth();
+  const lead = new Date(y, mo, 1).getDay();
+  const daysInMonth = new Date(y, mo + 1, 0).getDate();
+  const monthName = now.toLocaleDateString("en", { month: "long", year: "numeric" });
+  const cells = Array.from({ length: daysInMonth }, (_, i) => {
+    const k = keyOf(new Date(y, mo, i + 1));
+    return { day: i + 1, k, n: log[k] || 0 };
   });
-  if (labels.length > 1 && labels[1].col - labels[0].col < 3) labels.shift(); // no room for a clipped first label
+  const monthTopics = cells.reduce((a, c) => a + c.n, 0);
+  const monthDays = cells.filter((c) => c.n > 0).length;
   const status = drawnToday
     ? "You've drawn today's topic."
     : cur > 0
@@ -125,38 +120,29 @@ export function StreakBody(p: { log: Record<string, number>; todayKey: string; n
         <div><strong>{best}</strong><span>best streak</span></div>
         <div><strong>{total}</strong><span>topics drawn</span></div>
       </div>
-      <div className="st-scroller">
-        <div className="st-graph" role="img" aria-label={`Contribution graph for the last ${WEEKS} weeks: ${total} topics drawn, current streak ${cur} days, best streak ${best} days`}>
-          <div className="st-months" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${WEEKS}, var(--c))` }}>
-            {labels.map((l) => <span key={l.col} style={{ gridColumn: l.col + 1 }}>{l.text}</span>)}
-          </div>
-          <div className="st-body" aria-hidden="true">
-            <div className="st-dow">
-              <span style={{ gridRow: 2 }}>Mon</span>
-              <span style={{ gridRow: 4 }}>Wed</span>
-              <span style={{ gridRow: 6 }}>Fri</span>
-            </div>
-            <div className="st-weeks">
-              {weeks.flatMap((wk) =>
-                wk.map((k) => {
-                  const n = log[k] || 0;
-                  return (
-                    <span
-                      key={k}
-                      title={`${n ? `${n} ${n === 1 ? "topic" : "topics"}` : "No topics"} on ${fmtDateLong(k)}`}
-                      className={`st-cell${n === 1 ? " l1" : n > 1 ? " l2" : ""}${k > todayKey ? " future" : ""}${k === todayKey ? " today" : ""}`}
-                    />
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
+      <h3 className="st-month">{monthName}</h3>
+      <div
+        className="st-cal"
+        role="img"
+        aria-label={`${monthName}: ${monthTopics} ${monthTopics === 1 ? "topic" : "topics"} drawn across ${monthDays} ${monthDays === 1 ? "day" : "days"}. Current streak ${cur} days, best streak ${best} days.`}
+      >
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <span key={d} className="st-wd" aria-hidden="true">{d}</span>)}
+        {Array.from({ length: lead }, (_, i) => <span key={`b${i}`} aria-hidden="true" />)}
+        {cells.map(({ day, k, n }) => (
+          <span
+            key={k}
+            aria-hidden="true"
+            title={`${n ? `${n} ${n === 1 ? "topic" : "topics"}` : "No topics"} on ${fmtDateLong(k)}`}
+            className={`st-day${n === 1 ? " l1" : n > 1 ? " l2" : ""}${k > todayKey ? " future" : ""}${k === todayKey ? " today" : ""}`}
+          >
+            {day}
+          </span>
+        ))}
       </div>
       <div className="st-legend" aria-hidden="true">
-        <span><i className="st-cell" /> No topic</span>
-        <span><i className="st-cell l1" /> 1 topic</span>
-        <span><i className="st-cell l2" /> 2+ topics</span>
+        <span><i className="st-sw" /> No topic</span>
+        <span><i className="st-sw l1" /> 1 topic</span>
+        <span><i className="st-sw l2" /> 2+ topics</span>
       </div>
     </div>
   );
