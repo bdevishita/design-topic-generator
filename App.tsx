@@ -694,11 +694,16 @@ async function copyText(text: string) {
 
 const CSS = SHARED_CSS + MODAL_CSS + STREAK_CSS + `
 .dt-right{display:flex;align-items:flex-start;gap:.75rem 1.75rem;flex-wrap:wrap;justify-content:flex-end}
-.dt-timer{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;justify-content:flex-end}
-.dt-clock{font-size:clamp(1.6rem,4vw,2.25rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.dt-timer{display:inline-flex;align-items:center;gap:.6rem;border:2px solid var(--ink);border-radius:999px;padding:.25rem .25rem .25rem 1rem;
+  transition:border-color .6s ease}
+.dt-clock{font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .dt-clock.done{animation:dtpulse 1s ease-in-out infinite}
 @keyframes dtpulse{50%{opacity:.3}}
 .dt-mins{display:flex;align-items:center;gap:.35rem;font-size:.95rem;font-weight:600}
+.dt-root .dt-mins input{width:3rem;border:0;border-bottom:2px solid var(--ink);border-radius:0;padding:.15rem .1rem;text-align:center}
+.dt-root .dt-go{background:var(--ink);color:var(--bg);border:0;border-radius:999px;padding:.5rem 1.1rem;font-size:.95rem;font-weight:600;
+  transition:background-color .6s ease,color .6s ease}
+.dt-root .dt-reset{background:none;border:0;padding:.4rem .2rem;font-size:.9rem;font-weight:600;text-decoration:underline;text-underline-offset:.25em;text-decoration-thickness:2px}
 .dt-stage{position:absolute;inset:0;z-index:1;pointer-events:none;display:flex;flex-direction:column;justify-content:center;
   align-items:flex-start;text-align:left;gap:.75rem;padding-top:8rem;padding-bottom:8rem}
 .dt-stage>*{pointer-events:auto}
@@ -849,13 +854,18 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
         <div className="dt-right">
           <StreakStat cur={streak.cur} onOpen={() => setStreakOpen(true)} />
           <div className="dt-timer" role="group" aria-label="Research timer">
-            {clockShown && <span className={`dt-clock${done ? " done" : ""}`}>{clockText}</span>}
-            <label className="dt-mins">
-              <input type="number" min={1} max={600} value={mins} aria-label="Minutes"
-                onChange={(e) => setMins(parseInt(e.target.value, 10) || 0)} /> min
-            </label>
-            <button className="dt-ghost" type="button" onClick={startPause}>{startLabel}</button>
-            <button className="dt-ghost" type="button" onClick={reset}>Reset</button>
+            {clockShown ? (
+              <>
+                <span className={`dt-clock${done ? " done" : ""}`}>{clockText}</span>
+                <button className="dt-reset" type="button" onClick={reset}>Reset</button>
+              </>
+            ) : (
+              <label className="dt-mins">
+                <input type="number" min={1} max={600} value={mins} aria-label="Minutes"
+                  onChange={(e) => setMins(parseInt(e.target.value, 10) || 0)} /> min
+              </label>
+            )}
+            <button className="dt-go" type="button" onClick={startPause}>{startLabel}</button>
           </div>
         </div>
       </header>
