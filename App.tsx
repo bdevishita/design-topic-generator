@@ -4,6 +4,7 @@ import ModeSwitch, { type Mode } from "./ModeSwitch";
 import AI100 from "./AI100";
 import Modal, { MODAL_CSS } from "./Modal";
 import { STREAK_CSS, StreakBody, StreakStat, useDailyStreak } from "./Streak";
+import { HISTORY_CSS, MoreBody, useHistory } from "./History";
 
 const TOPICS: string[] = [
   "Gestalt: proximity",
@@ -692,7 +693,7 @@ async function copyText(text: string) {
   }
 }
 
-const CSS = SHARED_CSS + MODAL_CSS + STREAK_CSS + `
+const CSS = SHARED_CSS + MODAL_CSS + STREAK_CSS + HISTORY_CSS + `
 .dt-right{display:flex;align-items:flex-start;gap:.75rem 1.75rem;flex-wrap:wrap;justify-content:flex-end}
 .dt-timer{display:inline-flex;align-items:center;gap:.6rem;border:2px solid var(--ink);border-radius:999px;padding:.25rem .25rem .25rem 1rem;
   transition:border-color .6s ease}
@@ -714,8 +715,7 @@ const CSS = SHARED_CSS + MODAL_CSS + STREAK_CSS + `
 .dt-topic.rolling{opacity:.45;filter:blur(.5px)}
 .dt-topic.in{animation:dtland .5s cubic-bezier(.2,1.4,.4,1)}
 @keyframes dtland{from{transform:translateY(.12em) scale(.98)}to{transform:none}}
-.dt-goto{display:flex;align-items:center;gap:.4rem;font-size:1rem;font-weight:600;margin-left:auto}
-.dt-goto input{width:5rem}
+.dt-more{margin-left:auto}
 @media (max-width:600px){.dt-right,.dt-timer{justify-content:flex-start}.dt-stage{padding-top:16rem;padding-bottom:11rem}}
 `;
 
@@ -730,14 +730,17 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
   });
   const [rolling, setRolling] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Copy topic");
-  const [gotoVal, setGotoVal] = useState("");
-  const [msg, setMsg] = useState("");
   const [landKey, setLandKey] = useState(0);
 
   // daily streak: a day counts once you draw a topic on it
   const streak = useDailyStreak();
   const { record: recordDraw } = streak;
   const [streakOpen, setStreakOpen] = useState(false);
+
+  // history + notes: every topic you draw is kept under "More"
+  const history = useHistory();
+  const { add: addHistory } = history;
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // timer
   const [mins, setMins] = useState<number>(() => load().mins || 30);
@@ -771,11 +774,11 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
 
   const draw = useCallback(() => {
     if (rolling) return;
-    setMsg("");
     let deck = state.deck.length ? [...state.deck] : freshDeck();
     const idx = deck.pop() as number;
     setState((s) => ({ ...s, deck, current: idx }));
     recordDraw();
+    addHistory(idx);
     if (reduce) { land(idx); return; }
     setRolling(true);
     let delay = 45, elapsed = 0;
@@ -787,13 +790,12 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
       else { land(idx); setRolling(false); }
     };
     tick();
-  }, [rolling, state.deck, reduce, land, recordDraw]);
+  }, [rolling, state.deck, reduce, land, recordDraw, addHistory]);
 
-  const goTo = () => {
-    const n = parseInt(gotoVal, 10);
-    if (!n || n < 1 || n > TOPICS.length) { setMsg(`Enter a number from 1 to ${TOPICS.length}`); return; }
-    setMsg("");
-    const idx = n - 1;
+  // bring a topic from your history back onto the screen
+  const showTopic = (idx: number) => {
+    if (rolling || !TOPICS[idx]) return;
+    setMoreOpen(false);
     setState((s) => ({ ...s, current: idx, deck: s.deck.filter((i) => i !== idx) }));
     land(idx);
   };
@@ -806,13 +808,13 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (streakOpen) return; // the popup is open, Space shouldn't draw behind it
+      if (streakOpen || moreOpen) return; // a popup is open, Space shouldn't draw behind it
       const tag = (document.activeElement as HTMLElement | null)?.tagName;
       if (e.code === "Space" && tag !== "BUTTON" && tag !== "INPUT") { e.preventDefault(); draw(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draw, streakOpen]);
+  }, [draw, streakOpen, moreOpen]);
 
   // timer loop
   useEffect(() => {
@@ -884,14 +886,14 @@ function TopicGenerator({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => voi
         {display.mode !== "hint" && (
           <button className="dt-link" type="button" onClick={onCopy}>{copyLabel}</button>
         )}
-        {msg && <span className="dt-msg" aria-live="polite">{msg}</span>}
-        <label className="dt-goto">
-          Go to #
-          <input type="number" min={1} inputMode="numeric" aria-label="Topic number" value={gotoVal}
-            onChange={(e) => setGotoVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") goTo(); }} />
-        </label>
-        <button className="dt-link" type="button" onClick={goTo}>Open</button>
+        <button className="dt-ghost dt-more" type="button" aria-haspopup="dialog" onClick={() => setMoreOpen(true)}>More</button>
       </div>
+
+      {moreOpen && (
+        <Modal title="More" eyebrow={<p className="dt-mark">History and notes</p>} wide onClose={() => setMoreOpen(false)}>
+          <MoreBody items={history.items} titles={TOPICS} onNote={history.setNote} onRemove={history.remove} onShow={showTopic} />
+        </Modal>
+      )}
 
       {streakOpen && (
         <Modal title="Your streak" onClose={() => setStreakOpen(false)}>

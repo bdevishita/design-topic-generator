@@ -34,7 +34,7 @@ export default function Modal(props: { title: string; eyebrow?: ReactNode; foote
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); closeRef.current(); return; }
       if (e.key !== "Tab") return;
-      const f = Array.from(el.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+      const f = Array.from(el.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
       if (!f.length) { e.preventDefault(); return; }
       const first = f[0], last = f[f.length - 1], active = document.activeElement;
       if (e.shiftKey && (active === first || active === el)) { e.preventDefault(); last.focus(); }
