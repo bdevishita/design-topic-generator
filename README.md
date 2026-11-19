@@ -6,7 +6,7 @@ Random design topics for learning, with a daily streak, plus **100 Days of AI**:
 
 Switch between them with the toggle in the header (the choice is remembered, and `#topics` / `#100-days-of-ai` deep-link to each).
 
-- **Design topics**: draw a random design topic, time-box your research. A day counts toward your streak once you draw a topic on it. The streak popup shows current and best streak, topics drawn, and a GitHub-style contribution graph with month labels and a date on every square. **More** (bottom right) keeps a history of every topic you draw, with a spot for a link, notes or data under each one; "Show this topic" brings one back on screen.
+- **Design topics**: draw a random design topic, time-box your research. A day counts toward your streak once you draw a topic on it. The streak popup shows current and best streak, topics drawn, and a calendar of the current month (for example November, 30 days) with each day shaded by how many topics you drew. **More** (bottom right) keeps a history of every topic you draw, with a spot for a link, notes or data under each one; "Show this topic" brings one back on screen.
 - **100 Days of AI**: you get 3 project ideas from different areas of life. Pick one, read the problem, key topics and hints, build it, then mark it shipped with an optional project link and a one-line learning. There is no daily limit or streak. The shipped count opens a grid of the 100, and "Copy my log" exports a list you can turn into portfolio case studies.
 
 ## Where things live
